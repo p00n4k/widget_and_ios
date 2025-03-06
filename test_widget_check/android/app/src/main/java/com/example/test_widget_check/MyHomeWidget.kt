@@ -96,8 +96,17 @@ class MyHomeWidget : AppWidgetProvider() {
             val formattedDate = formatter.format(dateNow)
 
             val views = RemoteViews(context.packageName, R.layout.my_home_widget).apply {
-                val pm25ValueDate = (pm25Value ?: "No data") + " Date: " + formattedDate
-                setTextViewText(R.id.text_id, pm25ValueDate)
+                val pm25Value = pm25Value ?: "No data"
+
+                // If the value is numeric, round it to 2 decimal places
+                val pm25ValueFormatted = try {
+                    val numericValue = pm25Value.toDouble()
+                    String.format("%.1f", numericValue)
+                } catch (e: NumberFormatException) {
+                    pm25Value // Keep original string if it's not a number
+                }
+
+                setTextViewText(R.id.text_id, pm25ValueFormatted)
             }
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
