@@ -20,7 +20,7 @@ import java.util.Locale
 /**
  * Implementation of App Widget functionality.
  */
-class MyHomeWidget : AppWidgetProvider() {
+class Widget22 : AppWidgetProvider() {
 
     override fun onUpdate(
         context: Context,
@@ -31,7 +31,7 @@ class MyHomeWidget : AppWidgetProvider() {
             FetchPM25Task(context, appWidgetManager, appWidgetId).execute()
 
             // Schedule periodic updates every 1 minute
-            val intent = Intent(context, MyHomeWidget::class.java)
+            val intent = Intent(context, Widget22::class.java)
             intent.action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds)
 
@@ -102,7 +102,7 @@ class MyHomeWidget : AppWidgetProvider() {
         }
 
         override fun onPostExecute(result: Triple<Double?, List<Pair<String, Double>>?, String?>?) {
-            val views = RemoteViews(context.packageName, R.layout.my_home_widget)
+            val views = RemoteViews(context.packageName, R.layout.widget22)
 
             // ดึงค่าผลลัพธ์จาก Triple
             val pmCurrent = result?.first

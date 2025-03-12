@@ -41,7 +41,6 @@
                     android:id="@+id/text_pm25_header"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="@font/notothai"
                     android:text="ปริมาณฝุ่น PM2.5"
                     android:textColor="#FFFFFF"
                     android:textSize="10sp"
@@ -105,7 +104,6 @@
                         android:id="@+id/text_recomend"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:fontFamily="@font/notothai"
                         android:text="เริ่มมีผลต่อสุขภาพ"
                         android:textColor="#FFFFFF"
                         android:textSize="10sp"
@@ -114,41 +112,6 @@
             </LinearLayout>
         </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/date_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/notothai"
-                android:text="วันที่ 3 มีนาคม 2568"
-                android:textColor="#FFFFFF"
-                android:textSize="10sp"
-                android:textStyle="bold" />
-
-
-            <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="16dp">
-
-                <!-- Container for hourly readings -->
-                <LinearLayout
-                    android:id="@+id/hourly_readings_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal" />
-
-            </LinearLayout>
-
-
-        </LinearLayout>
 
         <!-- Second Column (PM2.5 Data) -->
 
