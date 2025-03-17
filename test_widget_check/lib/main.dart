@@ -30,7 +30,7 @@ class _LocationPageState extends State<LocationPage> {
     HomeWidget.setAppGroupId(appGroupId);
   }
 
-  String appGroupId = "group.homeScreenApp";
+  String appGroupId = "group.homescreenaapp";
   String iOSWidgetName = "MyHomeWidget";
   String androidWidgetName = "MyHomeWidget";
   String dataKey = "locationData_from_flutter";

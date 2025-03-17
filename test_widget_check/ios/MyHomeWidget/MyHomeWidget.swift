@@ -130,7 +130,7 @@ struct Provider: AppIntentTimelineProvider {
     }
 
     private func fetchPMData() async throws -> PMData {
-        let userDefaults = UserDefaults(suiteName: "group.homeScreenApp")
+        let userDefaults = UserDefaults(suiteName: "group.homescreenaapp")
         let textFromFlutterApp = userDefaults?.string(forKey: "locationData_from_flutter") ?? "13,100"
         let coordinates = textFromFlutterApp.components(separatedBy: ",")
 
