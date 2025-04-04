@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   runApp(MyApp());
@@ -103,5 +104,13 @@ class _LocationPageState extends State<LocationPage> {
         ),
       ),
     );
+  }
+}
+
+class SiriShortcut {
+  static const MethodChannel _channel = MethodChannel('siri_shortcut');
+
+  static Future<void> invokePM25Intent() async {
+    await _channel.invokeMethod('invokePM25Intent');
   }
 }

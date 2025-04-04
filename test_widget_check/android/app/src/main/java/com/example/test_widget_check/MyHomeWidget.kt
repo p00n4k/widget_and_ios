@@ -77,7 +77,12 @@ class MyHomeWidget : AppWidgetProvider() {
 
                     // Extract Thai date information
                     val datetimeThai = dataObject.getJSONObject("datetimeThai")
-                    val dateThai = datetimeThai.getString("dateThai")
+                    val dateThaiFirst = datetimeThai.getString("dateThai")
+                    val timeThai = datetimeThai.getString("timeThai")
+                    val timeThaiClean = timeThai.replace("เวลา", "").trim()
+                    val dateThai = "$dateThaiFirst $timeThaiClean"
+
+
 
                     // Extract hourly PM2.5 values and times
                     val hourlyData = dataObject.getJSONArray("graphPredictByHrs")
