@@ -78,6 +78,7 @@ class Widget22 : AppWidgetProvider() {
                     // Extract Thai date information
                     val datetimeThai = dataObject.getJSONObject("datetimeThai")
                     val dateThai = datetimeThai.getString("dateThai")
+                    val timeThai = datetimeThai.getString( "timeThai")
 
                     // Extract hourly PM2.5 values and times
                     val hourlyData = dataObject.getJSONArray("graphPredictByHrs")
@@ -103,6 +104,7 @@ class Widget22 : AppWidgetProvider() {
 
         override fun onPostExecute(result: Triple<Double?, List<Pair<String, Double>>?, String?>?) {
             val views = RemoteViews(context.packageName, R.layout.widget22)
+
 
             // ดึงค่าผลลัพธ์จาก Triple
             val pmCurrent = result?.first

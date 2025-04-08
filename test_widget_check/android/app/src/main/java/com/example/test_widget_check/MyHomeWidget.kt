@@ -79,8 +79,9 @@ class MyHomeWidget : AppWidgetProvider() {
                     val datetimeThai = dataObject.getJSONObject("datetimeThai")
                     val dateThaiFirst = datetimeThai.getString("dateThai")
                     val timeThai = datetimeThai.getString("timeThai")
-                    val timeThaiClean = timeThai.replace("เวลา", "").trim()
-                    val dateThai = "$dateThaiFirst $timeThaiClean"
+                    val dateThai = "$dateThaiFirst _ $timeThai"
+
+
 
 
 
@@ -178,6 +179,7 @@ class MyHomeWidget : AppWidgetProvider() {
             views.setTextColor(R.id.text_pm25_unit, Color.parseColor(textColor))
             views.setTextColor(R.id.text_pm25_header, Color.parseColor(textColor))
             views.setTextColor(R.id.date_text, Color.parseColor(textColor))
+            views.setTextColor(R.id.time_text, Color.parseColor(textColor))
 
 
 
@@ -196,11 +198,15 @@ class MyHomeWidget : AppWidgetProvider() {
             views.setImageViewResource(R.id.widget_background, backgroundResId)
             // อัปเดตวันที่ไทย ถ้ามี
             // ใช้ Regex เพื่อลบชื่อวัน (จันทร์ - อาทิตย์) ออกจาก dateThai
-            val cleanedDateThai = dateThai?.replace(Regex("(จันทร์|อังคาร|พุธ|พฤหัสบดี|ศุกร์|เสาร์|อาทิตย์)"), "")
+            val dateOnly = dateThai?.split("_")?.first()?.trim()
+            val timeOnly = dateThai?.substringAfter("_")?.trim()
+
+            val cleanedDateThai = dateOnly?.replace(Regex("(จันทร์|อังคาร|พุธ|พฤหัสบดี|ศุกร์|เสาร์|อาทิตย์)"), "")
+
 
             // ตั้งค่าข้อความใน Widget
             views.setTextViewText(R.id.date_text, cleanedDateThai ?: "No date")
-
+            views.setTextViewText(R.id.time_text, timeOnly ?: "No date")
 
             // ล้างข้อมูลเก่าของ hourly_readings_container
             views.removeAllViews(R.id.hourly_readings_container)
