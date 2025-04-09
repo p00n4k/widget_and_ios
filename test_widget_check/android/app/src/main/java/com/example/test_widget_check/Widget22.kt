@@ -16,6 +16,7 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * Implementation of App Widget functionality.
@@ -107,13 +108,12 @@ class Widget22 : AppWidgetProvider() {
 
 
             // ดึงค่าผลลัพธ์จาก Triple
-            val pmCurrent = result?.first
+            val pmCurrent = result?.first?.roundToInt()
             val hourlyData = result?.second
             val dateThai = result?.third
 
             // อัปเดตค่า PM2.5 ปัจจุบัน
-            views.setTextViewText(R.id.text_pm25, pmCurrent?.let { String.format("%.1f", it) } ?: "No data")
-// Set background image and message based on pmCurrent value
+            views.setTextViewText(R.id.text_pm25, pmCurrent?.toString() ?: "No data")
             val backgroundResId: Int
             val nearmeId: Int
             val humanImage: Int
