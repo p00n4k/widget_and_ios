@@ -2,6 +2,16 @@ import WidgetKit
 import SwiftUI
 import CoreLocation
 
+func roundedPm25Value(_ pm25: Pm25) -> Double? {
+    switch pm25 {
+    case .double(let value):
+        return round(value)
+    case .string(_):
+        return nil
+    }
+}
+
+
 extension Color {
     init(hex: String) {
         let hexSanitized = hex.replacingOccurrences(of: "#", with: "")
@@ -15,8 +25,6 @@ extension Color {
         self.init(red: red, green: green, blue: blue)
     }
 }
-
-
 
 func formatTime(from dateString: String) -> String? {
     // Define the input date format
@@ -37,14 +45,12 @@ func formatTime(from dateString: String) -> String? {
     }
 }
 
-
-
-
 struct PMResponse: Decodable {
     let status: Int
     let errMsg: String
     let data: PMData
 }
+
 enum Pm25: Codable {
     case double(Double)
     case string(String)
@@ -73,20 +79,38 @@ enum Pm25: Codable {
     }
 }
 
-
 struct PMData: Codable {
     let pm25: [Pm25]
     let datetimeThai: DateTimeThai
+    let datetimeEng: DateTimeEng?
     let graphPredictByHrs:[[Pm25]]
+    let loc: Location?
 }
 
 struct DateTimeThai: Codable {
     let dateThai: String
     let timeThai: String
 }
+
+struct DateTimeEng: Codable {
+    let dateEng: String
+    let timeEng: String
+}
+
+struct Location: Codable {
+    let loctext: String
+    let loctext_en: String
+    let tb_tn: String
+    let ap_tn: String
+    let pv_tn: String
+    let tb_en: String
+    let ap_en: String
+    let pv_en: String
+}
+
 struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> SimpleEntry {
-        SimpleEntry(date: Date(), pmData: nil, error: nil)
+        SimpleEntry(date: Date(), pmData: nil, error: nil, language: "th")
     }
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
@@ -98,13 +122,25 @@ struct Provider: AppIntentTimelineProvider {
                     dateThai: "วันพฤหัสบดีที่ 3 มีนาคม 2568",
                     timeThai: "เวลา 15:00 น."
                 ),
-                graphPredictByHrs: [[Pm25.double(34.0), Pm25.string("13.00")],[Pm25.double(35.0), Pm25.string("14.00")],[Pm25.double(37.0), Pm25.string("15.00")]]
-            
+                datetimeEng: DateTimeEng(
+                    dateEng: "Thursday, 3 March 2025",
+                    timeEng: "15:00"
+                ),
+                graphPredictByHrs: [[Pm25.double(34.0), Pm25.string("13.00")],[Pm25.double(35.0), Pm25.string("14.00")],[Pm25.double(37.0), Pm25.string("15.00")]],
+                loc: Location(
+                    loctext: "หนองขนาน เมืองเพชรบุรี เพชรบุรี",
+                    loctext_en: "Nong Khanan Mueang Phetchaburi Phetchaburi",
+                    tb_tn: "หนองขนาน",
+                    ap_tn: "เมืองเพชรบุรี",
+                    pv_tn: "เพชรบุรี",
+                    tb_en: "Nong Khanan",
+                    ap_en: "Mueang Phetchaburi",
+                    pv_en: "Phetchaburi"
+                )
             ),
-            error: nil
+            error: nil,
+            language: "th"
         )
-
-
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
@@ -113,29 +149,33 @@ struct Provider: AppIntentTimelineProvider {
 
         var pmData: PMData? = nil
         var errorMessage: String? = nil
+        var language = "th" // Default language
 
         do {
-            pmData = try await fetchPMData()
+            let result = try await fetchPMData()
+            pmData = result.pmData
+            language = result.language
         } catch {
             errorMessage = error.localizedDescription
         }
 
         for minuteOffset in 0..<12 {
             let entryDate = Calendar.current.date(byAdding: .minute, value: minuteOffset * 5, to: currentDate)!
-            let entry = SimpleEntry(date: entryDate, pmData: pmData, error: errorMessage)
+            let entry = SimpleEntry(date: entryDate, pmData: pmData, error: errorMessage, language: language)
             entries.append(entry)
         }
 
         return Timeline(entries: entries, policy: .after(Calendar.current.date(byAdding: .minute, value: 15, to: currentDate)!))
     }
 
-    private func fetchPMData() async throws -> PMData {
+    private func fetchPMData() async throws -> (pmData: PMData, language: String) {
         let userDefaults = UserDefaults(suiteName: "group.homescreenaapp")
-        let textFromFlutterApp = userDefaults?.string(forKey: "locationData_from_flutter") ?? "13,100"
+        let textFromFlutterApp = userDefaults?.string(forKey: "locationData_from_flutter") ?? "13,100,th"
         let coordinates = textFromFlutterApp.components(separatedBy: ",")
 
         let lat = coordinates[0]
         let lng = coordinates[1]
+        let language = coordinates.count > 2 ? coordinates[2] : "th" // Default to Thai if not specified
 
         let urlString = "https://pm25.gistda.or.th/rest/pred/getPm25byLocation?lat=\(lat)&lng=\(lng)"
         guard let url = URL(string: urlString) else { throw URLError(.badURL) }
@@ -149,20 +189,54 @@ struct Provider: AppIntentTimelineProvider {
             throw URLError(.badServerResponse)
         }
 
-        return try JSONDecoder().decode(PMResponse.self, from: data).data
+        let pmData = try JSONDecoder().decode(PMResponse.self, from: data).data
+        return (pmData, language)
     }
-    
 }
 
 struct SimpleEntry: TimelineEntry {
     let date: Date
     let pmData: PMData?
     let error: String?
+    let language: String
 }
 
 struct MyHomeWidgetEntryView: View {
     var entry: Provider.Entry
     @Environment(\.widgetFamily) var family
+    
+    // Localized text based on language
+    func localizedText(_ key: String) -> String {
+        switch key {
+        case "pm25_amount":
+            return entry.language == "th" ? "ปริมาณฝุ่น PM2.5 " : "PM2.5 Amount "
+        case "pm25_hourly":
+            return entry.language == "th" ? "PM2.5 รายชั่วโมง" : "PM2.5 Hourly"
+        case "very_good_air":
+            return entry.language == "th" ? "อากาศดีมาก" : "Very Good"
+        case "good_air":
+            return entry.language == "th" ? "อากาศดี" : "Good"
+        case "moderate_air":
+            return entry.language == "th" ? "อากาศปานกลาง" : "Medium"
+        case "start_health_effect":
+            return entry.language == "th" ? "เริ่มมีผลต่อสุขภาพ" : "Starting to Affect Health"
+        case "health_effect":
+            return entry.language == "th" ? "มีผลต่อสุขภาพ" : "Health Effect"
+        case "loading":
+            return entry.language == "th" ? "กำลังโหลดข้อมูล PM2.5..." : "Loading PM2.5 data..."
+        case "forecast":
+            return entry.language == "th" ? "พยากรณ์" : "Forecast"
+        case "hourly_trend":
+            return entry.language == "th" ? "แนวโน้มรายชั่วโมง" : "Hourly Trend"
+        case "location":
+            if let pmData = entry.pmData, let loc = pmData.loc {
+                return entry.language == "th" ? loc.loctext : loc.loctext_en
+            }
+            return ""
+        default:
+            return ""
+        }
+    }
     
     var body: some View {
         switch family {
@@ -182,61 +256,60 @@ struct MyHomeWidgetEntryView: View {
             VStack(alignment: .center, spacing: 8) {
                 HStack {
                     HStack(spacing: 2) {
-                        Text("ปริมาณฝุ่น PM2.5 ")
+                        Text(localizedText("pm25_amount"))
                             .font(.custom("NotoSansThai-Regular", size: 12.5))
                             .bold()
-                            
                         
                         Image(systemName: "location.fill")
-                            
                             .font(.system(size: 12))
                     }
                 }
                 
+                // Location is stored in the model but not displayed
                 
                 if let pmData = entry.pmData {
-                    let dateThaiWithoutDayOfWeek = pmData.datetimeThai.dateThai.replacingOccurrences(of: "จันทร์|อังคาร|พุธ|พฤหัสบดี|ศุกร์|เสาร์|อาทิตย์", with: "", options: .regularExpression)
-                    
-                    Text(dateThaiWithoutDayOfWeek)
+                    if entry.language == "eng" && pmData.datetimeEng != nil {
+                        Text(pmData.datetimeEng!.dateEng)
+                            .font(.custom("NotoSansThai-Regular", size: 11))
+                    } else {
+                        let dateThaiWithoutDayOfWeek = pmData.datetimeThai.dateThai.replacingOccurrences(of: "จันทร์|อังคาร|พุธ|พฤหัสบดี|ศุกร์|เสาร์|อาทิตย์", with: "", options: .regularExpression)
                         
-                        .font(.custom("NotoSansThai-Regular", size: 11))
-
+                        Text(dateThaiWithoutDayOfWeek)
+                            .font(.custom("NotoSansThai-Regular", size: 11))
+                    }
                 }
                 
                 HStack{
                     if let pmData = entry.pmData {
+                        
                         switch pmData.pm25[0] {
                         case .double(let value):
-                            if value <= 15 {
+                            let roundedValue = round(value)
+                            if roundedValue <= 15 {
                                 Image("verygood")
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 60, height: 60)
-                                    
-                            } else if value <= 25 {
+                            } else if roundedValue <= 25 {
                                 Image("good")
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 60, height: 60)
-                                    
-                            } else if value <= 37.5 {
+                            } else if roundedValue <= 37 {
                                 Image("medium")
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 60, height: 60)
-                                    
-                            } else if value <= 75 {
+                            } else if roundedValue <= 75 {
                                 Image("bad")
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 60, height: 60)
-                                    
                             } else {
                                 Image("verybad")
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 60, height: 60)
-                                   
                             }
                             
                         case .string(let value):
@@ -248,61 +321,59 @@ struct MyHomeWidgetEntryView: View {
                     }
 
                     VStack(spacing:-5){
-                    if let pmData = entry.pmData {
-                        switch pmData.pm25[0] {
-                        case .double(let value):
-                            Text("\(String(format: "%.1f", value))")
-                                .font(.custom("NotoSansThai-Regular", size: 25))
-                                .bold()
-                                
-                        case .string(let value):
-                            Text(value)
-                                .font(.custom("NotoSansThai-Regular", size: 25))
-                                .bold()
-                                
+                        if let pmData = entry.pmData {
+                            switch pmData.pm25[0] {
+                            case .double(let value):
+                                let roundedValue = round(value)
+                                Text("\(roundedValue)")
+                                    .font(.custom("NotoSansThai-Regular", size: 25))
+                                    .bold()
+                            case .string(let value):
+                                Text(value)
+                                    .font(.custom("NotoSansThai-Regular", size: 25))
+                                    .bold()
+                            }
                         }
+                        else {
+                            Text(localizedText("loading"))
+                        }
+                        Text("μg/m³")
+                            .font(.caption)
                     }
-                    else {
-                        Text("Loading PM2.5 data...")
-                            
-                    }
-                    Text("μg/m³")
-                        .font(.caption)
-                        
-                    
-                }
                 }
                 
                 if let pmData = entry.pmData {
                     switch pmData.pm25[0] {
                     case .double(let value):
-                        if value <= 15 {
-                            Text("อากาศดีมาก")
-                                .font(.custom("NotoSansThai-Regular", size: 14))
-                                .bold()
-                   
-                        } else if value <= 25 {
-                            Text("อากาศดี")
-                                .font(.custom("NotoSansThai-Regular", size: 14))
-                                .bold()
-                    
-                        } else if value <= 37.5 {
-                            Text("อากาศปานกลาง")
-                                .font(.custom("NotoSansThai-Regular", size: 14))
-                                .bold()
-                          
-                        } else if value <= 75 {
-                            Text("เริ่มมีผลต่อสุขภาพ")
-                                .font(.custom("NotoSansThai-Regular", size: 14))
-                                .bold()
-                         
+                        let roundedValue = round(value)
+
+                        if roundedValue <= 15 {
+                            Image("verygood")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 60, height: 60)
+                        } else if roundedValue <= 25 {
+                            Image("good")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 60, height: 60)
+                        } else if roundedValue <= 37 {
+                            Image("medium")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 60, height: 60)
+                        } else if roundedValue <= 75 {
+                            Image("bad")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 60, height: 60)
                         } else {
-                            Text("มีผลต่อสุขภาพ")
-                                .font(.custom("NotoSansThai-Regular", size: 14))
-                                .bold()
-                         
+                            Image("verybad")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 60, height: 60)
                         }
-                        
+
                     case .string(let value):
                         Text(value)
                             .font(.custom("NotoSansThai-Regular", size: 25))
@@ -315,66 +386,110 @@ struct MyHomeWidgetEntryView: View {
         }
     }
     
-    
-    
-    
-    
     var mediumWidgetView: some View {
         HStack{
-        VStack(alignment: .center, spacing: 16) {
-            HStack (spacing: 10){
-                HStack(spacing: 2) {
-                    Text("PM2.5 รายชั่วโมง")
-                        .font(.custom("NotoSansThai-Regular", size: 13.5))
-                        .bold()
+            VStack(alignment: .center, spacing: 16) {
+                HStack (spacing: 10){
+                    HStack(spacing: 2) {
+                        Text(localizedText("pm25_hourly"))
+                            .font(.custom("NotoSansThai-Regular", size: 13.5))
+                            .bold()
                         
-                    
-                    Image(systemName: "location.fill")
-                        
-                        .font(.system(size: 12))
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 12))
+                    }
                 }
                 
+                // Location is stored in the model but not displayed as requested
                 
-                
-            }
-            VStack{
-                HStack{
-                    
-                    VStack(alignment:.center,spacing: -2){
+                VStack{
+                    HStack{
+                        VStack(alignment:.center,spacing: -2){
+                            if let pmData = entry.pmData {
+                                switch pmData.pm25[0] {
+                                case .double(let value):
+                                    let roundedValue = round(value)
+
+                                    if roundedValue <= 15 {
+                                        Image("verygood")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 60, height: 60)
+                                    } else if roundedValue <= 25 {
+                                        Image("good")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 60, height: 60)
+                                    } else if roundedValue <= 37 {
+                                        Image("medium")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 60, height: 60)
+                                    } else if roundedValue <= 75 {
+                                        Image("bad")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 60, height: 60)
+                                    } else {
+                                        Image("verybad")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 60, height: 60)
+                                    }
+
+                                case .string(let value):
+                                    Text(value)
+                                        .font(.custom("NotoSansThai-Regular", size: 25))
+                                        .bold()
+                                        .foregroundColor(Color.white)
+                                }
+                            }
+
+                        }
                         
+                        VStack(spacing:-5){
+                            if let pmData = entry.pmData {
+                                switch pmData.pm25[0] {
+                                case .double(let value):
+                                    Text("\(Int(value.rounded()))")
+                                        .font(.custom("NotoSansThai-Regular", size: 25))
+                                        .bold()
+                                case .string(let value):
+                                    Text(value)
+                                        .font(.custom("NotoSansThai-Regular", size: 25))
+                                        .bold()
+                                }
+                                Text("μg/m³")
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                    
+                    HStack{
                         if let pmData = entry.pmData {
                             switch pmData.pm25[0] {
                             case .double(let value):
-                                if value <= 15 {
-                                    Image("verygood")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 60, height: 60)
-                                        
-                                } else if value <= 25 {
-                                    Image("good")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 60, height: 60)
-                                        
-                                } else if value <= 37.5 {
-                                    Image("medium")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 60, height: 60)
-                                        
-                                } else if value <= 75 {
-                                    Image("bad")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 60, height: 60)
-                                        
+                                let roundedValue = round(value)
+                                if roundedValue <= 15 {
+                                    Text(localizedText("very_good_air"))
+                                        .font(.custom("NotoSansThai-Regular", size: 14))
+                                        .bold()
+                                } else if roundedValue <= 25 {
+                                    Text(localizedText("good_air"))
+                                        .font(.custom("NotoSansThai-Regular", size: 14))
+                                        .bold()
+                                } else if roundedValue <= 37.5 {
+                                    Text(localizedText("moderate_air"))
+                                        .font(.custom("NotoSansThai-Regular", size: 14))
+                                        .bold()
+                                } else if roundedValue <= 75 {
+                                    Text(localizedText("start_health_effect"))
+                                        .font(.custom("NotoSansThai-Regular", size: 14))
+                                        .bold()
                                 } else {
-                                    Image("verybad")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 60, height: 60)
-                                        
+                                    Text(localizedText("health_effect"))
+                                        .font(.custom("NotoSansThai-Regular", size: 14))
+                                        .bold()
                                 }
                                 
                             case .string(let value):
@@ -384,112 +499,60 @@ struct MyHomeWidgetEntryView: View {
                                     .foregroundColor(Color.white)
                             }
                         }
-
                     }
-                    VStack(spacing:-5){
-                    if let pmData = entry.pmData {
-                        switch pmData.pm25[0] {
-                        case .double(let value):
-                            Text("\(String(format: "%.1f", value))")
-                                .font(.custom("NotoSansThai-Regular", size: 25))
-                                .bold()
-                                
-                        case .string(let value):
-                            Text(value)
-                                .font(.custom("NotoSansThai-Regular", size: 25))
-                                .bold()
-                                
-                        }
-                        Text("μg/m³")
-                            .font(.caption)
-                            
-                    }
-                }
-                    
-                }
-                HStack{
-                    if let pmData = entry.pmData {
-                        switch pmData.pm25[0] {
-                        case .double(let value):
-                            if value <= 15 {
-                                Text("อากาศดีมาก")
-                                    .font(.custom("NotoSansThai-Regular", size: 14))
-                                    .bold()
-                                   
-                            } else if value <= 25 {
-                                Text("อากาศดี")
-                                    .font(.custom("NotoSansThai-Regular", size: 14))
-                                    .bold()
-                                    
-                            } else if value <= 37.5 {
-                                Text("อากาศปานกลาง")
-                                    .font(.custom("NotoSansThai-Regular", size: 14))
-                                    .bold()
-                                   
-                            } else if value <= 75 {
-                                Text("เริ่มมีผลต่อสุขภาพ")
-                                    .font(.custom("NotoSansThai-Regular", size: 14))
-                                    .bold()
-                                    
-                            } else {
-                                Text("มีผลต่อสุขภาพ")
-                                    .font(.custom("NotoSansThai-Regular", size: 14))
-                                    .bold()
-                                    
-                            }
-                            
-                        case .string(let value):
-                            Text(value)
-                                .font(.custom("NotoSansThai-Regular", size: 25))
-                                .bold()
-                                .foregroundColor(Color.white)
-                        }
-                    }
-
-                        
-                    
-                    
                 }
             }
             
-            
-        }
             Spacer()
+            
             VStack(alignment: .trailing, spacing: 16) {
                 if let pmData = entry.pmData {
-                    let dateThaiWithoutDayOfWeek = pmData.datetimeThai.dateThai.replacingOccurrences(of: "จันทร์|อังคาร|พุธ|พฤหัสบดี|ศุกร์|เสาร์|อาทิตย์", with: "", options: .regularExpression)
                     VStack{
-                        Text(dateThaiWithoutDayOfWeek)
-                            
-                            .font(.custom("NotoSansThai-Regular", size: 11))
-                        Text(pmData.datetimeThai.timeThai)
-                            
-                            .font(.custom("NotoSansThai-Regular", size: 11))
+                        if entry.language == "eng" && pmData.datetimeEng != nil {
+                            Text(pmData.datetimeEng!.dateEng)
+                                .font(.custom("NotoSansThai-Regular", size: 11))
+                            Text(pmData.datetimeEng!.timeEng)
+                                .font(.custom("NotoSansThai-Regular", size: 11))
+                        } else {
+                            let dateThaiWithoutDayOfWeek = pmData.datetimeThai.dateThai.replacingOccurrences(of: "จันทร์|อังคาร|พุธ|พฤหัสบดี|ศุกร์|เสาร์|อาทิตย์", with: "", options: .regularExpression)
+                            Text(dateThaiWithoutDayOfWeek)
+                                .font(.custom("NotoSansThai-Regular", size: 11))
+                            Text(pmData.datetimeThai.timeThai)
+                                .font(.custom("NotoSansThai-Regular", size: 11))
+                        }
                     }
                 }
+                
                 Spacer()
+                
                 HStack(spacing: 20) {
                     // Loop through the available data points
                     ForEach(0..<min(entry.pmData?.graphPredictByHrs.count ?? 0, 3), id: \.self) { index in
                         VStack(alignment: .center) {
                             if let pmData = entry.pmData {
-                                // Check if data for this index exists
+                                // Format and display time based on language
                                 switch pmData.graphPredictByHrs[index][1] {
                                 case .double(let value):
                                     Text("") // Empty Text for .double values
                                 case .string(let value):
-                                    let timeStr = String(value[value.index(value.startIndex, offsetBy: 11)..<value.index(value.startIndex, offsetBy: 16)])
-                                    Text(timeStr)
-                                        .font(.custom("NotoSansThai-Regular", size: 12))
+                                    if value.count >= 16 {
+                                        let timeStr = String(value[value.index(value.startIndex, offsetBy: 11)..<value.index(value.startIndex, offsetBy: 16)])
+                                        Text(timeStr)
+                                            .font(.custom("NotoSansThai-Regular", size: 12))
+                                    } else {
+                                        Text(value)
+                                            .font(.custom("NotoSansThai-Regular", size: 12))
+                                    }
                                 }
                             } else {
-                                Text("Loading PM2.5 data...")
+                                Text(localizedText("loading"))
                             }
 
                             if let pmData = entry.pmData {
                                 switch pmData.graphPredictByHrs[index][0] {
                                 case .double(let value):
-                                    Text("\(String(format: "%.1f", value))")
+                                    let roundedValue = Int(round(value))
+                                    Text("\(roundedValue)")
                                         .font(.custom("NotoSansThai-Regular", size: 12))
                                         .bold()
                                 case .string(let value):
@@ -498,117 +561,153 @@ struct MyHomeWidgetEntryView: View {
                                         .bold()
                                 }
                             } else {
-                                Text("Loading PM2.5 data...")
+                                Text(localizedText("loading"))
                             }
                         }
                     }
                 }
                 .font(.custom("NotoSansThai-Regular", size: 14))
                 .padding(.bottom, 16)
-
             }
-    }
-    }
-}
-    
-    
-    
-    
-    
-    
-    struct MyHomeWidget: Widget {
-        let kind: String = "MyHomeWidget"
-        
-        var body: some WidgetConfiguration {
-            AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
-                if let pmData = entry.pmData {
-                    switch pmData.pm25[0] {
-                    case .double(let value):
-                        if value <= 15 {
-                            MyHomeWidgetEntryView(entry: entry)
-                                .containerBackground(for: .widget) {
-                                    Image("Andwidjet")
-                                        .resizable()
-                                        .scaledToFill()
-                                }
-                                .foregroundColor(Color.white)
-                        } else if value <= 25 {
-                            MyHomeWidgetEntryView(entry: entry)
-                                .containerBackground(for: .widget) {
-                                    Image("Andwidjet2")
-                                        .resizable()
-                                        .scaledToFill()
-                                }
-                                .foregroundColor(Color(hex: "#303C46"))
-
-                        } else if value <= 37.5 {
-                            MyHomeWidgetEntryView(entry: entry)
-                                .containerBackground(for: .widget) {
-                                    Image("Andwidjet3")
-                                        .resizable()
-                                        .scaledToFill()
-                                }
-                                .foregroundColor(Color(hex: "#303C46"))
-
-                        } else if value <= 75 {
-                            MyHomeWidgetEntryView(entry: entry)
-                                .containerBackground(for: .widget) {
-                                    Image("Andwidjet4")
-                                        .resizable()
-                                        .scaledToFill()
-                                }
-                                .foregroundColor(Color.white)
-                        } else {
-                            MyHomeWidgetEntryView(entry: entry)
-                                .containerBackground(for: .widget) {
-                                    Image("Andwidjet5")
-                                        .resizable()
-                                        .scaledToFill()
-                                }
-                                .foregroundColor(Color.white)
-                        }
-                        
-                    case .string(let value):
-                        Text(value)
-                            .font(.custom("NotoSansThai-Regular", size: 25))
-                            .bold()  .foregroundColor(Color.white)
-                        }
-                    
-                    }
-                else{
-                    MyHomeWidgetEntryView(entry: entry)
-                        .containerBackground(for: .widget) {
-                            Image("Andwidjet5")
-                                .resizable()
-                                .scaledToFill()
-                        }
-                        .foregroundColor(Color.white)
-                }
-                }
-            
-
-            .configurationDisplayName("PM2.5 Widget")
-            .description("Displays the latest PM2.5 air quality data.")
-            .supportedFamilies([.systemMedium, .systemSmall])
-            
         }
     }
-    
-    #Preview(as: .systemMedium) {
-        MyHomeWidget()
-    } timeline: {
-        SimpleEntry(
-            date: Date(),
-            pmData: PMData(
-                pm25: [Pm25.double(2.0), Pm25.string("")],
-                datetimeThai: DateTimeThai(
-                    dateThai: "วันพฤหัสบดีที่ 3 มีนาคม 2568",
-                    timeThai: "เวลา 15:00 น."
-                ),
-                graphPredictByHrs: [[Pm25.double(50.0), Pm25.string("2025-03-06T09:00:00.000Z")],[Pm25.double(35.0), Pm25.string("2025-03-06T10:00:00.000Z")],[Pm25.double(37.0), Pm25.string("2025-03-06T11:00:00.000Z")]]
-            ),
-            error: nil
-        )
-        SimpleEntry(date: .now, pmData: nil, error: "Failed to load data")
-    }
+}
 
+struct MyHomeWidget: Widget {
+    let kind: String = "MyHomeWidget"
+    
+    var body: some WidgetConfiguration {
+        AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
+            if let pmData = entry.pmData {
+                switch pmData.pm25[0] {
+                case .double(let value):
+                    let roundedValue = round(value)
+                    if roundedValue <= 15 {
+                        MyHomeWidgetEntryView(entry: entry)
+                            .containerBackground(for: .widget) {
+                                Image("Andwidjet")
+                                    .resizable()
+                                    .scaledToFill()
+                            }
+                            .foregroundColor(Color.white)
+                    } else if roundedValue <= 25 {
+                        MyHomeWidgetEntryView(entry: entry)
+                            .containerBackground(for: .widget) {
+                                Image("Andwidjet2")
+                                    .resizable()
+                                    .scaledToFill()
+                            }
+                            .foregroundColor(Color(hex: "#303C46"))
+                    } else if roundedValue <= 37.5 {
+                        MyHomeWidgetEntryView(entry: entry)
+                            .containerBackground(for: .widget) {
+                                Image("Andwidjet3")
+                                    .resizable()
+                                    .scaledToFill()
+                            }
+                            .foregroundColor(Color(hex: "#303C46"))
+                    } else if roundedValue <= 75 {
+                        MyHomeWidgetEntryView(entry: entry)
+                            .containerBackground(for: .widget) {
+                                Image("Andwidjet4")
+                                    .resizable()
+                                    .scaledToFill()
+                            }
+                            .foregroundColor(Color.white)
+                    } else {
+                        MyHomeWidgetEntryView(entry: entry)
+                            .containerBackground(for: .widget) {
+                                Image("Andwidjet5")
+                                    .resizable()
+                                    .scaledToFill()
+                            }
+                            .foregroundColor(Color.white)
+                    }
+                    
+                case .string(let value):
+                    Text(value)
+                        .font(.custom("NotoSansThai-Regular", size: 25))
+                        .bold()
+                        .foregroundColor(Color.white)
+                }
+            }
+            else {
+                MyHomeWidgetEntryView(entry: entry)
+                    .containerBackground(for: .widget) {
+                        Image("Andwidjet5")
+                            .resizable()
+                            .scaledToFill()
+                    }
+                    .foregroundColor(Color.white)
+            }
+        }
+        .configurationDisplayName("PM2.5 Widget")
+        .description("Displays the latest PM2.5 air quality data.")
+        .supportedFamilies([.systemMedium, .systemSmall])
+    }
+}
+
+#Preview(as: .systemMedium) {
+    MyHomeWidget()
+} timeline: {
+    // Thai preview
+    SimpleEntry(
+        date: Date(),
+        pmData: PMData(
+            pm25: [Pm25.double(2.0), Pm25.string("")],
+            datetimeThai: DateTimeThai(
+                dateThai: "วันพฤหัสบดีที่ 3 มีนาคม 2568",
+                timeThai: "เวลา 15:00 น."
+            ),
+            datetimeEng: DateTimeEng(
+                dateEng: "Thursday, 3 March 2025",
+                timeEng: "15:00"
+            ),
+            graphPredictByHrs: [[Pm25.double(50.0), Pm25.string("2025-03-06T09:00:00.000Z")],[Pm25.double(35.0), Pm25.string("2025-03-06T10:00:00.000Z")],[Pm25.double(37.0), Pm25.string("2025-03-06T11:00:00.000Z")]],
+            loc: Location(
+                loctext: "หนองขนาน เมืองเพชรบุรี เพชรบุรี",
+                loctext_en: "Nong Khanan Mueang Phetchaburi Phetchaburi",
+                tb_tn: "หนองขนาน",
+                ap_tn: "เมืองเพชรบุรี",
+                pv_tn: "เพชรบุรี",
+                tb_en: "Nong Khanan",
+                ap_en: "Mueang Phetchaburi",
+                pv_en: "Phetchaburi"
+            )
+        ),
+        error: nil,
+        language: "th"
+    )
+    
+    // English preview
+    SimpleEntry(
+        date: Date(),
+        pmData: PMData(
+            pm25: [Pm25.double(24.3), Pm25.string("")],
+            datetimeThai: DateTimeThai(
+                dateThai: "วันพฤหัสบดีที่ 1 พฤษภาคม 2568",
+                timeThai: "เวลา 13:00 น."
+            ),
+            datetimeEng: DateTimeEng(
+                dateEng: "Thursday, 1 May 2025",
+                timeEng: "13:00"
+            ),
+            graphPredictByHrs: [[Pm25.double(22.4), Pm25.string("2025-05-01T14:00:00.000Z")],[Pm25.double(21.8), Pm25.string("2025-05-01T15:00:00.000Z")],[Pm25.double(20.7), Pm25.string("2025-05-01T16:00:00.000Z")]],
+            loc: Location(
+                loctext: "หนองขนาน เมืองเพชรบุรี เพชรบุรี",
+                loctext_en: "Nong Khanan Mueang Phetchaburi Phetchaburi",
+                tb_tn: "หนองขนาน",
+                ap_tn: "เมืองเพชรบุรี",
+                pv_tn: "เพชรบุรี",
+                tb_en: "Nong Khanan",
+                ap_en: "Mueang Phetchaburi",
+                pv_en: "Phetchaburi"
+            )
+        ),
+        error: nil,
+        language: "eng"
+    )
+    
+    // Error state preview
+    SimpleEntry(date: .now, pmData: nil, error: "Failed to load data", language: "eng")
+}

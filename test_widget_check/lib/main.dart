@@ -79,7 +79,7 @@ class _LocationPageState extends State<LocationPage> {
       locationMessage =
           "Latitude: ${position.latitude}, Longitude: ${position.longitude}";
     });
-    var data = "${position.latitude},${position.longitude}";
+    var data = "${position.latitude},${position.longitude},eng";
     await HomeWidget.saveWidgetData(dataKey, data);
     await HomeWidget.updateWidget(
         iOSName: iOSWidgetName, androidName: androidWidgetName);
@@ -104,13 +104,5 @@ class _LocationPageState extends State<LocationPage> {
         ),
       ),
     );
-  }
-}
-
-class SiriShortcut {
-  static const MethodChannel _channel = MethodChannel('siri_shortcut');
-
-  static Future<void> invokePM25Intent() async {
-    await _channel.invokeMethod('invokePM25Intent');
   }
 }
