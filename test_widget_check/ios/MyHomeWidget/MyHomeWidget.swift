@@ -324,7 +324,7 @@ struct MyHomeWidgetEntryView: View {
                         if let pmData = entry.pmData {
                             switch pmData.pm25[0] {
                             case .double(let value):
-                                let roundedValue = round(value)
+                                let roundedValue = Int(round(value))
                                 Text("\(roundedValue)")
                                     .font(.custom("NotoSansThai-Regular", size: 25))
                                     .bold()
@@ -342,45 +342,7 @@ struct MyHomeWidgetEntryView: View {
                     }
                 }
                 
-                if let pmData = entry.pmData {
-                    switch pmData.pm25[0] {
-                    case .double(let value):
-                        let roundedValue = round(value)
 
-                        if roundedValue <= 15 {
-                            Image("verygood")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 60, height: 60)
-                        } else if roundedValue <= 25 {
-                            Image("good")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 60, height: 60)
-                        } else if roundedValue <= 37 {
-                            Image("medium")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 60, height: 60)
-                        } else if roundedValue <= 75 {
-                            Image("bad")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 60, height: 60)
-                        } else {
-                            Image("verybad")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 60, height: 60)
-                        }
-
-                    case .string(let value):
-                        Text(value)
-                            .font(.custom("NotoSansThai-Regular", size: 25))
-                            .bold()
-                            .foregroundColor(Color.white)
-                    }
-                }
 
             }
         }
