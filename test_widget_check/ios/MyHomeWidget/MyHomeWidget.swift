@@ -12,6 +12,7 @@ func roundedPm25Value(_ pm25: Pm25) -> Double? {
 }
 
 
+
 extension Color {
     init(hex: String) {
         let hexSanitized = hex.replacingOccurrences(of: "#", with: "")
@@ -252,7 +253,22 @@ struct MyHomeWidgetEntryView: View {
     }
     
     var smallWidgetView: some View {
-        VStack(alignment: .center, spacing: 1) {
+        // Create a local variable to store the rounded value that will be accessible for the whole view
+        let displayValue: String = {
+            if let pmData = entry.pmData {
+                switch pmData.pm25[0] {
+                case .double(let value):
+                    return "\(Int(round(value)))"
+                case .string(let value):
+                    return value
+                }
+            } else {
+                return localizedText("loading")
+            }
+        }()
+        
+        return VStack(alignment: .center, spacing: 1) {
+            // Rest of your view code remains the same
             VStack(alignment: .center, spacing: 8) {
                 HStack {
                     HStack(spacing: 2) {
@@ -264,8 +280,6 @@ struct MyHomeWidgetEntryView: View {
                             .font(.system(size: 12))
                     }
                 }
-                
-                // Location is stored in the model but not displayed
                 
                 if let pmData = entry.pmData {
                     if entry.language == "eng" && pmData.datetimeEng != nil {
@@ -279,9 +293,8 @@ struct MyHomeWidgetEntryView: View {
                     }
                 }
                 
-                HStack{
+                HStack {
                     if let pmData = entry.pmData {
-                        
                         switch pmData.pm25[0] {
                         case .double(let value):
                             let roundedValue = round(value)
@@ -320,7 +333,7 @@ struct MyHomeWidgetEntryView: View {
                         }
                     }
 
-                    VStack(spacing:-5){
+                    VStack(spacing: -5) {
                         if let pmData = entry.pmData {
                             switch pmData.pm25[0] {
                             case .double(let value):
@@ -333,23 +346,36 @@ struct MyHomeWidgetEntryView: View {
                                     .font(.custom("NotoSansThai-Regular", size: 25))
                                     .bold()
                             }
-                        }
-                        else {
+                        } else {
                             Text(localizedText("loading"))
                         }
                         Text("μg/m³")
                             .font(.caption)
                     }
                 }
-                
-
-
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("PM2.5 Hourly at your current location \(displayValue) microgram per cubic meter")
     }
+
     
     var mediumWidgetView: some View {
-        HStack{
+        
+        let displayValue: String = {
+            if let pmData = entry.pmData {
+                switch pmData.pm25[0] {
+                case .double(let value):
+                    return "\(Int(round(value)))"
+                case .string(let value):
+                    return value
+                }
+            } else {
+                return localizedText("loading")
+            }
+        }()
+        
+        return HStack{
             VStack(alignment: .center, spacing: 16) {
                 HStack (spacing: 10){
                     HStack(spacing: 2) {
@@ -371,7 +397,7 @@ struct MyHomeWidgetEntryView: View {
                                 switch pmData.pm25[0] {
                                 case .double(let value):
                                     let roundedValue = round(value)
-
+                                    
                                     if roundedValue <= 15 {
                                         Image("verygood")
                                             .resizable()
@@ -398,7 +424,7 @@ struct MyHomeWidgetEntryView: View {
                                             .scaledToFit()
                                             .frame(width: 60, height: 60)
                                     }
-
+                                    
                                 case .string(let value):
                                     Text(value)
                                         .font(.custom("NotoSansThai-Regular", size: 25))
@@ -406,7 +432,7 @@ struct MyHomeWidgetEntryView: View {
                                         .foregroundColor(Color.white)
                                 }
                             }
-
+                            
                         }
                         
                         VStack(spacing:-5){
@@ -463,6 +489,7 @@ struct MyHomeWidgetEntryView: View {
                         }
                     }
                 }
+                
             }
             
             Spacer()
@@ -509,7 +536,7 @@ struct MyHomeWidgetEntryView: View {
                             } else {
                                 Text(localizedText("loading"))
                             }
-
+                            
                             if let pmData = entry.pmData {
                                 switch pmData.graphPredictByHrs[index][0] {
                                 case .double(let value):
@@ -532,6 +559,76 @@ struct MyHomeWidgetEntryView: View {
                 .padding(.bottom, 16)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel({
+            // Start with the base text
+            var accessibilityText = "PM2.5 Hourly at your current location "
+            
+            // Add the current PM value
+            if let pmData = entry.pmData {
+                switch pmData.pm25[0] {
+                case .double(let value):
+                    accessibilityText += "\(Int(round(value))) microgram per cubic meter "
+
+                    let roundedValue = round(value)
+                    if roundedValue <= 15 {
+                        accessibilityText += "Big smiley face icon and blue thumbs up icon, showing very good air quality "
+                    } else if roundedValue <= 25 {
+                        accessibilityText += "Smiley face icon and green check mark icon, showing good air quality "
+                    } else if roundedValue <= 37.5 {
+                        accessibilityText += "Masked face icon and yellow check mark icon, showing moderate air quality "
+                    } else if roundedValue <= 75 {
+                        accessibilityText += "Masked face icon and orange thumbs down icon, showing air quality that begins to affect health "
+                    } else {
+                        accessibilityText += "Masked face icon and red cross mark icon, showing air quality that impacts health "
+                    }
+
+                case .string(let value):
+                    accessibilityText += "\(value) microgram per cubic meter "
+                }
+                
+                // Add forecast information
+                if pmData.graphPredictByHrs.count > 0 {
+                    accessibilityText += "Forecast: "
+                    
+                    for index in 0..<min(pmData.graphPredictByHrs.count, 3) {
+                        var timeStr = ""
+                        var valueStr = ""
+                        
+                        // Get time
+                        switch pmData.graphPredictByHrs[index][1] {
+                        case .string(let time):
+                            if time.count >= 16 {
+                                timeStr = String(time[time.index(time.startIndex, offsetBy: 11)..<time.index(time.startIndex, offsetBy: 16)])
+                            } else {
+                                timeStr = time
+                            }
+                        case .double:
+                            timeStr = ""
+                        }
+                        
+                        // Get value
+                        switch pmData.graphPredictByHrs[index][0] {
+                        case .double(let value):
+                            valueStr = "\(Int(round(value)))"
+                        case .string(let value):
+                            valueStr = value
+                        }
+                        
+                        accessibilityText += "\(timeStr), ,\(valueStr) microgram per cubic meter"
+                        
+                        // Add comma between forecast points but not after the last one
+                        if index < min(pmData.graphPredictByHrs.count, 3) - 1 {
+                            accessibilityText += ", "
+                        }
+                    }
+                }
+            } else {
+                accessibilityText += localizedText("loading")
+            }
+            
+            return accessibilityText
+        }())
     }
 }
 
@@ -550,6 +647,7 @@ struct MyHomeWidget: Widget {
                                 Image("Andwidjet")
                                     .resizable()
                                     .scaledToFill()
+                                    .accessibilityHidden(true)
                             }
                             .foregroundColor(Color.white)
                     } else if roundedValue <= 25 {
@@ -558,6 +656,7 @@ struct MyHomeWidget: Widget {
                                 Image("Andwidjet2")
                                     .resizable()
                                     .scaledToFill()
+                                    .accessibilityHidden(true)
                             }
                             .foregroundColor(Color(hex: "#303C46"))
                     } else if roundedValue <= 37.5 {
@@ -566,6 +665,7 @@ struct MyHomeWidget: Widget {
                                 Image("Andwidjet3")
                                     .resizable()
                                     .scaledToFill()
+                                    .accessibilityHidden(true)
                             }
                             .foregroundColor(Color(hex: "#303C46"))
                     } else if roundedValue <= 75 {
@@ -574,6 +674,7 @@ struct MyHomeWidget: Widget {
                                 Image("Andwidjet4")
                                     .resizable()
                                     .scaledToFill()
+                                    .accessibilityHidden(true)
                             }
                             .foregroundColor(Color.white)
                     } else {
@@ -582,6 +683,7 @@ struct MyHomeWidget: Widget {
                                 Image("Andwidjet5")
                                     .resizable()
                                     .scaledToFill()
+                                    .accessibilityHidden(true)
                             }
                             .foregroundColor(Color.white)
                     }
