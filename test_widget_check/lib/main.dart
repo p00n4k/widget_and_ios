@@ -79,7 +79,7 @@ class _LocationPageState extends State<LocationPage> {
       locationMessage =
           "Latitude: ${position.latitude}, Longitude: ${position.longitude}";
     });
-    var data = "${position.latitude},${position.longitude},th";
+    var data = "${position.latitude},${position.longitude},eng";
     await HomeWidget.saveWidgetData(dataKey, data);
     await HomeWidget.updateWidget(
         iOSName: iOSWidgetName, androidName: androidWidgetName);
