@@ -12,7 +12,10 @@ import SwiftUI
 struct MyHomeWidgetBundle: WidgetBundle {
     var body: some Widget {
         MyHomeWidget()
-        MyHomeWidgetControl()
-        MyHomeWidgetLiveActivity()
+
+        if #available(iOS 18.0, *) {
+            MyHomeWidgetControl()
+            MyHomeWidgetLiveActivity()
+        }
     }
 }

@@ -229,6 +229,10 @@ struct MyHomeWidgetEntryView: View {
             return entry.language == "th" ? "พยากรณ์" : "Forecast"
         case "hourly_trend":
             return entry.language == "th" ? "แนวโน้มรายชั่วโมง" : "Hourly Trend"
+        case "pm25_accessibility_label":
+                return entry.language == "th" ? "พีเอ็มสองจุดห้ารายชั่วโมงตามตำแหน่งปัจจุบัน" : "PM2.5 Hourly at your current location"
+        case "pm25_accessibility_label_part2":
+                return entry.language == "th" ? "ไมโครกรัมต่อลูกบาศก์เมตร" : "microgram per cubic meter"
         case "location":
             if let pmData = entry.pmData, let loc = pmData.loc {
                 return entry.language == "th" ? loc.loctext : loc.loctext_en
@@ -253,6 +257,17 @@ struct MyHomeWidgetEntryView: View {
     }
     
     var smallWidgetView: some View {
+        func createAccessibilityLabel() -> NSAttributedString {
+            let result = NSMutableAttributedString()
+            
+            let prefix = NSAttributedString(string: "PM สองจุดห้า ค่าเท่ากับ ", attributes: [.accessibilitySpeechLanguage: "th-TH"])
+            let number = NSAttributedString(string: "35", attributes: [.accessibilitySpeechLanguage: "en-US"])
+            result.append(prefix)
+            result.append(number)
+            
+            return result
+        }
+
         // Create a local variable to store the rounded value that will be accessible for the whole view
         let displayValue: String = {
             if let pmData = entry.pmData {
@@ -273,7 +288,7 @@ struct MyHomeWidgetEntryView: View {
                 HStack {
                     HStack(spacing: 2) {
                         Text(localizedText("pm25_amount"))
-                            .font(.custom("NotoSansThai-Regular", size: 12.5))
+                            
                             .bold()
                         
                         Image(systemName: "location.fill")
@@ -284,12 +299,12 @@ struct MyHomeWidgetEntryView: View {
                 if let pmData = entry.pmData {
                     if entry.language == "eng" && pmData.datetimeEng != nil {
                         Text(pmData.datetimeEng!.dateEng)
-                            .font(.custom("NotoSansThai-Regular", size: 11))
+                            
                     } else {
                         let dateThaiWithoutDayOfWeek = pmData.datetimeThai.dateThai.replacingOccurrences(of: "จันทร์|อังคาร|พุธ|พฤหัสบดี|ศุกร์|เสาร์|อาทิตย์", with: "", options: .regularExpression)
                         
                         Text(dateThaiWithoutDayOfWeek)
-                            .font(.custom("NotoSansThai-Regular", size: 11))
+                            
                     }
                 }
                 
@@ -327,7 +342,7 @@ struct MyHomeWidgetEntryView: View {
                             
                         case .string(let value):
                             Text(value)
-                                .font(.custom("NotoSansThai-Regular", size: 25))
+                               
                                 .bold()
                                 .foregroundColor(Color.white)
                         }
@@ -339,11 +354,11 @@ struct MyHomeWidgetEntryView: View {
                             case .double(let value):
                                 let roundedValue = Int(round(value))
                                 Text("\(roundedValue)")
-                                    .font(.custom("NotoSansThai-Regular", size: 25))
+                                    
                                     .bold()
                             case .string(let value):
                                 Text(value)
-                                    .font(.custom("NotoSansThai-Regular", size: 25))
+                                   
                                     .bold()
                             }
                         } else {
@@ -354,12 +369,14 @@ struct MyHomeWidgetEntryView: View {
                     }
                 }
             }
+            
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("PM2.5 Hourly at your current location \(displayValue) microgram per cubic meter")
+        .accessibilityLabel("สวัสดี")
+        
     }
 
-    
+     
     var mediumWidgetView: some View {
         
         let displayValue: String = {
@@ -380,7 +397,7 @@ struct MyHomeWidgetEntryView: View {
                 HStack (spacing: 10){
                     HStack(spacing: 2) {
                         Text(localizedText("pm25_hourly"))
-                            .font(.custom("NotoSansThai-Regular", size: 13.5))
+       
                             .bold()
                         
                         Image(systemName: "location.fill")
@@ -427,7 +444,7 @@ struct MyHomeWidgetEntryView: View {
                                     
                                 case .string(let value):
                                     Text(value)
-                                        .font(.custom("NotoSansThai-Regular", size: 25))
+                                        
                                         .bold()
                                         .foregroundColor(Color.white)
                                 }
@@ -440,11 +457,11 @@ struct MyHomeWidgetEntryView: View {
                                 switch pmData.pm25[0] {
                                 case .double(let value):
                                     Text("\(Int(value.rounded()))")
-                                        .font(.custom("NotoSansThai-Regular", size: 25))
+                                     
                                         .bold()
                                 case .string(let value):
                                     Text(value)
-                                        .font(.custom("NotoSansThai-Regular", size: 25))
+                                        
                                         .bold()
                                 }
                                 Text("μg/m³")
@@ -460,29 +477,28 @@ struct MyHomeWidgetEntryView: View {
                                 let roundedValue = round(value)
                                 if roundedValue <= 15 {
                                     Text(localizedText("very_good_air"))
-                                        .font(.custom("NotoSansThai-Regular", size: 14))
+                                       
                                         .bold()
                                 } else if roundedValue <= 25 {
                                     Text(localizedText("good_air"))
-                                        .font(.custom("NotoSansThai-Regular", size: 14))
+                                       
                                         .bold()
                                 } else if roundedValue <= 37.5 {
                                     Text(localizedText("moderate_air"))
-                                        .font(.custom("NotoSansThai-Regular", size: 14))
+                                      
                                         .bold()
                                 } else if roundedValue <= 75 {
                                     Text(localizedText("start_health_effect"))
-                                        .font(.custom("NotoSansThai-Regular", size: 14))
-                                        .bold()
+                                                                                .bold()
                                 } else {
                                     Text(localizedText("health_effect"))
-                                        .font(.custom("NotoSansThai-Regular", size: 14))
+                                        
                                         .bold()
                                 }
                                 
                             case .string(let value):
                                 Text(value)
-                                    .font(.custom("NotoSansThai-Regular", size: 25))
+                                    
                                     .bold()
                                     .foregroundColor(Color.white)
                             }
@@ -499,15 +515,15 @@ struct MyHomeWidgetEntryView: View {
                     VStack{
                         if entry.language == "eng" && pmData.datetimeEng != nil {
                             Text(pmData.datetimeEng!.dateEng)
-                                .font(.custom("NotoSansThai-Regular", size: 11))
+                                
                             Text(pmData.datetimeEng!.timeEng)
-                                .font(.custom("NotoSansThai-Regular", size: 11))
+                                
                         } else {
                             let dateThaiWithoutDayOfWeek = pmData.datetimeThai.dateThai.replacingOccurrences(of: "จันทร์|อังคาร|พุธ|พฤหัสบดี|ศุกร์|เสาร์|อาทิตย์", with: "", options: .regularExpression)
                             Text(dateThaiWithoutDayOfWeek)
-                                .font(.custom("NotoSansThai-Regular", size: 11))
+                                
                             Text(pmData.datetimeThai.timeThai)
-                                .font(.custom("NotoSansThai-Regular", size: 11))
+                                
                         }
                     }
                 }
@@ -527,10 +543,10 @@ struct MyHomeWidgetEntryView: View {
                                     if value.count >= 16 {
                                         let timeStr = String(value[value.index(value.startIndex, offsetBy: 11)..<value.index(value.startIndex, offsetBy: 16)])
                                         Text(timeStr)
-                                            .font(.custom("NotoSansThai-Regular", size: 12))
+                                            
                                     } else {
                                         Text(value)
-                                            .font(.custom("NotoSansThai-Regular", size: 12))
+                                          
                                     }
                                 }
                             } else {
@@ -542,11 +558,11 @@ struct MyHomeWidgetEntryView: View {
                                 case .double(let value):
                                     let roundedValue = Int(round(value))
                                     Text("\(roundedValue)")
-                                        .font(.custom("NotoSansThai-Regular", size: 12))
+                                       
                                         .bold()
                                 case .string(let value):
                                     Text(value)
-                                        .font(.custom("NotoSansThai-Regular", size: 25))
+                                        
                                         .bold()
                                 }
                             } else {
@@ -555,11 +571,11 @@ struct MyHomeWidgetEntryView: View {
                         }
                     }
                 }
-                .font(.custom("NotoSansThai-Regular", size: 14))
+                
                 .padding(.bottom, 16)
             }
         }
-        .accessibilityElement(children: .ignore)
+
         .accessibilityLabel({
             // Start with the base text
             var accessibilityText = "PM2.5 Hourly at your current location "
@@ -690,7 +706,7 @@ struct MyHomeWidget: Widget {
                     
                 case .string(let value):
                     Text(value)
-                        .font(.custom("NotoSansThai-Regular", size: 25))
+                        
                         .bold()
                         .foregroundColor(Color.white)
                 }
